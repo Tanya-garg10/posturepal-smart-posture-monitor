@@ -1,0 +1,80 @@
+'use client'
+
+import CameraFeed from '@/components/live-monitor/camera-feed'
+import StatusBadge from '@/components/live-monitor/status-badge'
+import MetricsPanel from '@/components/live-monitor/metrics-panel'
+import DetectedIssues from '@/components/live-monitor/detected-issues'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Play, Pause, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { usePostureAnalyze } from '@/hooks/use-api'
+
+export default function LiveMonitorPage() {
+  const [isMonitoring, setIsMonitoring] = useState(false)
+  const [lastAnalysis, setLastAnalysis] = useState<any>(null)
+  const { analyze } = usePostureAnalyze()
+
+  const handleStartMonitoring = async () => {
+    setIsMonitoring(true)
+    try {
+      const result = await analyze()
+      setLastAnalysis(result.data)
+    } catch (error) {
+      console.error('Analysis failed:', error)
+    }
+  }
+
+  const handleStopMonitoring = () => {
+    setIsMonitoring(false)
+  }
+
+  const handleReset = () => {
+    setLastAnalysis(null)
+  }
+
+  return (
+    <div className="p-8 space-y-8 max-w-7xl">
+      <div className="space-y-3">
+        <h1 className="text-4xl font-bold text-foreground tracking-tight">Live Monitor</h1>
+        <p className="text-lg text-muted-foreground">Real-time posture monitoring and analysis powered by AI</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Camera Feed */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="overflow-hidden">
+            <CameraFeed />
+          </Card>
+
+          {/* Controls */}
+          <Card className="p-5 flex items-center justify-between border-border/60">
+            <StatusBadge status={isMonitoring ? 'monitoring' : 'idle'} />
+            <div className="flex gap-2">
+              {!isMonitoring ? (
+                <Button onClick={handleStartMonitoring} className="gap-2">
+                  <Play className="w-4 h-4" />
+                  Start Monitoring
+                </Button>
+              ) : (
+                <Button onClick={handleStopMonitoring} variant="outline" className="gap-2">
+                  <Pause className="w-4 h-4" />
+                  Stop
+                </Button>
+              )}
+              <Button onClick={handleReset} variant="outline">
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Panel */}
+        <div className="space-y-4">
+          <MetricsPanel analysisData={lastAnalysis} />
+          <DetectedIssues analysisData={lastAnalysis} />
+        </div>
+      </div>
+    </div>
+  )
+}
