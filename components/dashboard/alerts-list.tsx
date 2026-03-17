@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, CheckCircle2, Clock, ArrowRight } from 'lucide-react'
 import { useAlerts } from '@/hooks/use-api'
 import { LoadingState, ErrorState, EmptyState } from '@/components/state-components'
+import { alertsStore, LiveAlert } from '@/lib/alerts-store'
 
 function formatTime(dateString: string) {
   const date = new Date(dateString)
@@ -22,7 +24,13 @@ function formatTime(dateString: string) {
 
 export default function AlertsList() {
   const { alerts, isLoading, isError, error, mutate } = useAlerts()
-  const recentAlerts = alerts?.slice(0, 3) ?? []
+
+  const [liveAlerts, setLiveAlerts] = useState<LiveAlert[]>(() => alertsStore.getAlerts())
+  useEffect(() => alertsStore.subscribe(() => setLiveAlerts([...alertsStore.getAlerts()])), [])
+
+  const backendRecent = alerts?.slice(0, 3) ?? []
+  // show live alerts first (max 3 total)
+  const recentAlerts = [...liveAlerts.slice(0, 3), ...backendRecent].slice(0, 3)
 
   if (isLoading) {
     return (
@@ -70,8 +78,8 @@ export default function AlertsList() {
             <div
               key={alert.id}
               className={`p-4 rounded-xl border transition-all ${alert.resolved
-                  ? 'bg-secondary/8 border-secondary/30 hover:bg-secondary/12'
-                  : 'bg-destructive/8 border-destructive/30 hover:bg-destructive/12'
+                ? 'bg-secondary/8 border-secondary/30 hover:bg-secondary/12'
+                : 'bg-destructive/8 border-destructive/30 hover:bg-destructive/12'
                 }`}
             >
               <div className="flex items-start gap-3">
@@ -90,10 +98,10 @@ export default function AlertsList() {
                     </div>
                     <span
                       className={`px-3 py-1 text-xs rounded-full font-semibold flex-shrink-0 ${alert.severity === 'high'
-                          ? 'bg-destructive/20 text-destructive'
-                          : alert.severity === 'medium'
-                            ? 'bg-amber-200/40 text-amber-900'
-                            : 'bg-blue-200/40 text-blue-900'
+                        ? 'bg-destructive/20 text-destructive'
+                        : alert.severity === 'medium'
+                          ? 'bg-amber-200/40 text-amber-900'
+                          : 'bg-blue-200/40 text-blue-900'
                         }`}
                     >
                       {alert.severity}

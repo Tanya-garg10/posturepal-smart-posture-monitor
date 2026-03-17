@@ -1,4 +1,4 @@
-﻿import useSWR from 'swr'
+import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
@@ -56,6 +56,7 @@ export function useSettings() {
     revalidateOnFocus: false,
     dedupingInterval: 300000,
   })
+
   const updateSettings = async (updatedSettings: unknown) => {
     const response = await fetch('/api/settings', {
       method: 'POST',
@@ -66,6 +67,7 @@ export function useSettings() {
     mutate()
     return result
   }
+
   return { settings: data?.data, isLoading, isError: !!error, error: error?.message, updateSettings, mutate }
 }
 

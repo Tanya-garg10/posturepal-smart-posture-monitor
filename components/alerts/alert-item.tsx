@@ -25,7 +25,7 @@ function formatTime(date: Date) {
   return date.toLocaleDateString()
 }
 
-export default function AlertItem({ alert }: { alert: Alert }) {
+export default function AlertItem({ alert, onDismiss }: { alert: Alert; onDismiss?: () => void }) {
   const bgColorMap = {
     low: 'bg-blue-50 border-blue-200',
     medium: 'bg-amber-50 border-amber-200',
@@ -61,13 +61,12 @@ export default function AlertItem({ alert }: { alert: Alert }) {
               <p className="font-semibold text-foreground">{alert.type}</p>
               <p className="text-sm text-muted-foreground mt-1">{alert.message}</p>
             </div>
-            <span className={`px-3 py-1 text-xs font-semibold rounded-full flex-shrink-0 whitespace-nowrap ${
-              alert.severity === 'high'
-                ? 'bg-red-200 text-red-700'
-                : alert.severity === 'medium'
+            <span className={`px-3 py-1 text-xs font-semibold rounded-full flex-shrink-0 whitespace-nowrap ${alert.severity === 'high'
+              ? 'bg-red-200 text-red-700'
+              : alert.severity === 'medium'
                 ? 'bg-amber-200 text-amber-700'
                 : 'bg-blue-200 text-blue-700'
-            }`}>
+              }`}>
               {severityLabelMap[alert.severity]}
             </span>
           </div>
@@ -79,7 +78,7 @@ export default function AlertItem({ alert }: { alert: Alert }) {
             </div>
 
             {!alert.resolved && (
-              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/90">
+              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/90" onClick={onDismiss}>
                 Dismiss
               </Button>
             )}

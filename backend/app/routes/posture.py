@@ -46,6 +46,11 @@ def analyze_posture(payload: AnalyzePostureRequest):
         fixes.append("Take a 2-minute stretch break.")
         score -= 10
 
+    if payload.eye_closed:
+        issues.append("Eye Fatigue Detected")
+        fixes.append("Look away from the screen for 20 seconds (20-20-20 rule).")
+        score -= 15
+
     if not issues:
         posture_status = "Good Posture"
         fixes.append("Great job. Maintain this posture.")

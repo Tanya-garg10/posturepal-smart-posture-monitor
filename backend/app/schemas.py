@@ -69,6 +69,7 @@ class AnalyzePostureRequest(BaseModel):
     back_angle: float
     shoulder_alignment: float
     sitting_duration_minutes: int
+    eye_closed: Optional[bool] = False
 
 
 class AnalyzePostureResponse(BaseModel):

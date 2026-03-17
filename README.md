@@ -57,6 +57,38 @@ Open [http://localhost:3000](http://localhost:3000).
 
 > The app falls back to mock data automatically if the backend is unavailable.
 
+## AI Posture Detector
+
+`posture_detector.py` is a standalone Python script that uses your webcam to detect posture and eye state in real-time and sends results to the backend.
+
+### Setup
+
+```bash
+pip install mediapipe opencv-python requests
+```
+
+### Run
+
+```bash
+python posture_detector.py
+```
+
+What it does:
+- Captures webcam frames via OpenCV
+- Uses MediaPipe Pose to calculate neck angle, back angle, shoulder alignment
+- Uses MediaPipe Face Mesh + Eye Aspect Ratio (EAR) to detect prolonged eye closure
+- Every 4 seconds, POSTs results to `POST /api/posture/analyze`
+- Backend returns score, issues, and fixes — shown live on the frontend dashboard
+
+Thresholds:
+| Metric | Threshold | Alert |
+|--------|-----------|-------|
+| Neck angle | > 30° | Neck warning |
+| Back angle | > 25° | Slouch alert |
+| Shoulder diff | > 15 | Misalignment |
+| Eyes closed | >= 2 sec | Fatigue alert |
+| Sitting | >= 45 min | Break reminder |
+
 ## Project Structure
 
 ```
