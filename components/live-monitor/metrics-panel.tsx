@@ -3,23 +3,22 @@ import { Gauge, Activity, Zap } from 'lucide-react'
 import { EmptyState } from '@/components/state-components'
 
 export default function MetricsPanel({ analysisData }: { analysisData?: any }) {
-  // Use API data if available, fallback to empty state
   const metrics = analysisData ? [
     {
       label: 'Current Score',
-      value: `${analysisData.overallScore}%`,
+      value: `${analysisData.overallScore ?? 100}%`,
       icon: Gauge,
       color: 'primary',
     },
     {
       label: 'Neck Angle',
-      value: `${analysisData.neckAngle}°`,
+      value: `${analysisData.neckAngle ?? '0.0'}°`,
       icon: Activity,
       color: 'secondary',
     },
     {
       label: 'Spine Alignment',
-      value: `${analysisData.spineAlignment}%`,
+      value: `${analysisData.spineAlignment ?? 100}%`,
       icon: Zap,
       color: 'accent',
     },
@@ -44,7 +43,6 @@ export default function MetricsPanel({ analysisData }: { analysisData?: any }) {
               secondary: 'bg-secondary/10 text-secondary',
               accent: 'bg-accent/10 text-accent',
             }
-
             return (
               <div key={idx} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg hover:bg-muted/60 transition-colors">
                 <div className="flex items-center gap-3">

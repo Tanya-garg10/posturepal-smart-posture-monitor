@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import CameraFeed, { CameraFeedHandle } from '@/components/live-monitor/camera-feed'
 import StatusBadge from '@/components/live-monitor/status-badge'
 import MetricsPanel from '@/components/live-monitor/metrics-panel'
@@ -11,6 +11,13 @@ import { Play, Pause, RotateCcw } from 'lucide-react'
 import { alertsStore } from '@/lib/alerts-store'
 
 const SEND_INTERVAL_MS = 4000
+
+// ── Unified thresholds (used in both score calc and issue detection) ──────
+const THRESHOLDS = {
+  neck: 25,        // degrees
+  back: 15,        // degrees  
+  shoulder: 20,    // pixels
+}
 
 export default function LiveMonitorPage() {
   const cameraRef = useRef<CameraFeedHandle>(null)
@@ -25,14 +32,9 @@ export default function LiveMonitorPage() {
 
   const sessionStart = useRef<number>(Date.now())
   const lastSend = useRef<number>(0)
-  const latestMetrics = useRef(liveMetrics)
 
-  useEffect(() => { latestMetrics.current = liveMetrics }, [liveMetrics])
-
-  // called every frame by CameraFeed
   const handleMetrics = useCallback((m: typeof liveMetrics) => {
     setLiveMetrics(m)
-    latestMetrics.current = m
 
     const now = Date.now()
     if (now - lastSend.current < SEND_INTERVAL_MS) return
@@ -56,21 +58,19 @@ export default function LiveMonitorPage() {
       .then((res) => {
         if (res?.data) {
           setAnalysisResult(res.data)
-
-          // push live alerts into the store
+          // push to alerts store
           const issues: { type: string; message: string; severity: 'low' | 'medium' | 'high' }[] = []
           const d = res.data
           if (d.detected_issues?.includes('Neck Bend Warning'))
-            issues.push({ type: 'Neck Bend Warning', message: 'Your neck is bent too far forward. Adjust screen to eye level.', severity: 'medium' })
+            issues.push({ type: 'Neck Bend Warning', message: 'Neck bent too far forward. Adjust screen to eye level.', severity: 'medium' })
           if (d.detected_issues?.includes('Slouch Detected'))
             issues.push({ type: 'Slouch Detected', message: 'Slouching detected. Sit up straight and engage your core.', severity: 'high' })
           if (d.detected_issues?.includes('Shoulder Misalignment'))
             issues.push({ type: 'Shoulder Misalignment', message: 'Shoulders are uneven. Relax and align them evenly.', severity: 'medium' })
           if (d.detected_issues?.includes('Eye Fatigue Detected'))
-            issues.push({ type: 'Eye Fatigue', message: 'Eyes closed too long. Look away for 20 seconds (20-20-20 rule).', severity: 'low' })
+            issues.push({ type: 'Eye Fatigue', message: 'Eyes closed too long. Use the 20-20-20 rule.', severity: 'low' })
           if (d.detected_issues?.includes('Long Sitting Session'))
-            issues.push({ type: 'Break Reminder', message: "You've been sitting for 45+ minutes. Take a short break.", severity: 'low' })
-
+            issues.push({ type: 'Break Reminder', message: "Sitting 45+ min. Take a short break.", severity: 'low' })
           if (issues.length > 0) alertsStore.push(issues)
         }
       })
@@ -97,21 +97,35 @@ export default function LiveMonitorPage() {
     setLiveMetrics(null)
   }
 
-  // build analysisData shape that MetricsPanel + DetectedIssues expect
-  const analysisData = analysisResult
-    ? {
-      overallScore: analysisResult.correction_score,
-      neckAngle: liveMetrics?.neckAngle?.toFixed(1) ?? '—',
-      spineAlignment: analysisResult.correction_score,
-      detectedIssues: {
-        slouching: analysisResult.detected_issues?.includes('Slouch Detected'),
-        neckStrain: analysisResult.detected_issues?.includes('Neck Bend Warning'),
-        unevenShoulders: analysisResult.detected_issues?.includes('Shoulder Misalignment'),
-      },
-      suggestedFixes: analysisResult.suggested_fixes,
-      status: analysisResult.posture_status,
-    }
-    : undefined
+  // Score + issues computed directly from live camera data (instant, no API wait)
+  const liveScore = (() => {
+    if (!liveMetrics) return null
+    let s = 100
+    if (liveMetrics.neckAngle > THRESHOLDS.neck) s -= 20
+    if (liveMetrics.backAngle > THRESHOLDS.back) s -= 25
+    if (liveMetrics.shoulderAlignment > THRESHOLDS.shoulder) s -= 15
+    if (liveMetrics.eyeClosed) s -= 15
+    return Math.max(s, 0)
+  })()
+
+  const liveIssues = liveMetrics ? {
+    slouching: liveMetrics.backAngle > THRESHOLDS.back,
+    neckStrain: liveMetrics.neckAngle > THRESHOLDS.neck,
+    unevenShoulders: liveMetrics.shoulderAlignment > THRESHOLDS.shoulder,
+  } : null
+
+  // Use API result when available (enriches with suggested_fixes), else use live
+  const analysisData = liveMetrics && liveScore !== null ? {
+    overallScore: analysisResult?.overallScore ?? liveScore,
+    spineAlignment: analysisResult?.spineAlignment ?? liveScore,
+    neckAngle: liveMetrics.neckAngle.toFixed(1),
+    backAngle: liveMetrics.backAngle.toFixed(1),
+    shoulderAlignment: liveMetrics.shoulderAlignment.toFixed(1),
+    eyeClosed: liveMetrics.eyeClosed,
+    detectedIssues: analysisResult?.detectedIssues ?? liveIssues,
+    suggestedFixes: analysisResult?.suggested_fixes ?? [],
+    status: liveScore >= 80 ? 'good' : liveScore >= 60 ? 'fair' : 'poor',
+  } : null
 
   return (
     <div className="p-8 space-y-8 max-w-7xl">
@@ -135,9 +149,9 @@ export default function LiveMonitorPage() {
           {isMonitoring && liveMetrics && (
             <div className="grid grid-cols-4 gap-3">
               {[
-                { label: 'Neck', value: `${liveMetrics.neckAngle.toFixed(1)}°`, warn: liveMetrics.neckAngle > 30 },
-                { label: 'Back', value: `${liveMetrics.backAngle.toFixed(1)}°`, warn: liveMetrics.backAngle > 25 },
-                { label: 'Shoulders', value: liveMetrics.shoulderAlignment.toFixed(0), warn: liveMetrics.shoulderAlignment > 15 },
+                { label: 'Neck', value: `${liveMetrics.neckAngle.toFixed(1)}°`, warn: liveMetrics.neckAngle > THRESHOLDS.neck },
+                { label: 'Back', value: `${liveMetrics.backAngle.toFixed(1)}°`, warn: liveMetrics.backAngle > THRESHOLDS.back },
+                { label: 'Shoulders', value: liveMetrics.shoulderAlignment.toFixed(0), warn: liveMetrics.shoulderAlignment > THRESHOLDS.shoulder },
                 { label: 'Eyes', value: liveMetrics.eyeClosed ? 'Closed' : 'Open', warn: liveMetrics.eyeClosed },
               ].map(({ label, value, warn }) => (
                 <Card key={label} className={`p-3 text-center border ${warn ? 'border-red-300 bg-red-50/50' : 'border-border/40'}`}>
